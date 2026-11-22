@@ -1,0 +1,555 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate All Project Files
+        run: |
+          mkdir -p app/src/main/res/layout app/src/main/java/com/velocut/editor
+
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "VeloCutOffline"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.5.2" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+
+          cat << 'EOF' > gradle.properties
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "com.velocut.editor"
+              compileSdk = 34
+
+              defaultConfig {
+                  applicationId = "com.velocut.editor"
+                  minSdk = 24
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+
+          dependencies {
+              implementation("androidx.core:core-ktx:1.13.1")
+              implementation("androidx.appcompat:appcompat:1.7.0")
+              implementation("com.google.android.material:material:1.12.0")
+              implementation("androidx.media3:media3-exoplayer:1.4.1")
+              implementation("androidx.media3:media3-ui:1.4.1")
+              implementation("androidx.media3:media3-transformer:1.4.1")
+              implementation("androidx.media3:media3-effect:1.4.1")
+              implementation("androidx.media3:media3-common:1.4.1")
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@android:drawable/ic_media_play"
+                  android:label="VeloCut Offline"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.Material3.Dark.NoActionBar">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="#121212"
+              android:padding="16dp">
+
+              <LinearLayout
+                  android:layout_width="match_parent"
+                  android:layout_height="wrap_content"
+                  android:orientation="vertical">
+
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="VeloCut Offline Editor"
+                      android:textColor="#FFFFFF"
+                      android:textSize="20sp"
+                      android:textStyle="bold"
+                      android:layout_marginBottom="12dp" />
+
+                  <androidx.media3.ui.PlayerView
+                      android:id="@+id/playerView"
+                      android:layout_width="match_parent"
+                      android:layout_height="240dp"
+                      android:background="#000000"
+                      android:layout_marginBottom="12dp" />
+
+                  <Button
+                      android:id="@+id/btnPickVideo"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:text="Pilih Video dari Galeri"
+                      android:layout_marginBottom="16dp" />
+
+                  <TextView
+                      android:id="@+id/tvTrimInfo"
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Potong Video (Trim): 0% - 100%"
+                      android:textColor="#DDDDDD" />
+
+                  <com.google.android.material.slider.RangeSlider
+                      android:id="@+id/trimSlider"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:valueFrom="0.0"
+                      android:valueTo="100.0"
+                      android:layout_marginBottom="12dp" />
+
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Kecepatan (Speed)"
+                      android:textColor="#DDDDDD" />
+
+                  <Spinner
+                      android:id="@+id/spinnerSpeed"
+                      android:layout_width="match_parent"
+                      android:layout_height="48dp"
+                      android:layout_marginBottom="12dp" />
+
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Filter Warna"
+                      android:textColor="#DDDDDD" />
+
+                  <Spinner
+                      android:id="@+id/spinnerFilter"
+                      android:layout_width="match_parent"
+                      android:layout_height="48dp"
+                      android:layout_marginBottom="12dp" />
+
+                  <TextView
+                      android:layout_width="wrap_content"
+                      android:layout_height="wrap_content"
+                      android:text="Rasio Aspek"
+                      android:textColor="#DDDDDD" />
+
+                  <Spinner
+                      android:id="@+id/spinnerRatio"
+                      android:layout_width="match_parent"
+                      android:layout_height="48dp"
+                      android:layout_marginBottom="12dp" />
+
+                  <LinearLayout
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:orientation="horizontal"
+                      android:gravity="center_vertical"
+                      android:layout_marginBottom="12dp">
+
+                      <Button
+                          android:id="@+id/btnRotate"
+                          android:layout_width="0dp"
+                          android:layout_weight="1"
+                          android:layout_height="wrap_content"
+                          android:text="Putar: 0°" />
+
+                      <CheckBox
+                          android:id="@+id/cbMute"
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:text="Bisukan Audio"
+                          android:textColor="#FFFFFF"
+                          android:layout_marginStart="12dp" />
+                  </LinearLayout>
+
+                  <EditText
+                      android:id="@+id/etOverlayText"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:hint="Tambah Teks / Watermark (opsional)"
+                      android:textColor="#FFFFFF"
+                      android:textColorHint="#888888"
+                      android:layout_marginBottom="16dp" />
+
+                  <Button
+                      android:id="@+id/btnExport"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:text="EXPORT VIDEO (MP4 OFFLINE)"
+                      android:backgroundTint="#00C853"
+                      android:textColor="#FFFFFF" />
+
+                  <ProgressBar
+                      android:id="@+id/progressBar"
+                      style="?android:attr/progressBarStyleHorizontal"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:indeterminate="true"
+                      android:visibility="gone"
+                      android:layout_marginTop="12dp" />
+
+                  <TextView
+                      android:id="@+id/tvStatus"
+                      android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:text="Status: Siap"
+                      android:textColor="#AAAAAA"
+                      android:layout_marginTop="8dp" />
+              </LinearLayout>
+          </ScrollView>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/velocut/editor/MainActivity.kt
+          package com.velocut.editor
+
+          import android.content.ContentValues
+          import android.net.Uri
+          import android.os.Build
+          import android.os.Bundle
+          import android.os.Environment
+          import android.provider.MediaStore
+          import android.text.SpannableString
+          import android.view.View
+          import android.widget.*
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.annotation.OptIn
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.media3.common.C
+          import androidx.media3.common.Effect
+          import androidx.media3.common.MediaItem
+          import androidx.media3.common.Player
+          import androidx.media3.common.audio.AudioProcessor
+          import androidx.media3.common.audio.SonicAudioProcessor
+          import androidx.media3.common.util.UnstableApi
+          import androidx.media3.effect.*
+          import androidx.media3.exoplayer.ExoPlayer
+          import androidx.media3.transformer.*
+          import androidx.media3.ui.PlayerView
+          import com.google.android.material.slider.RangeSlider
+          import com.google.common.collect.ImmutableList
+          import java.io.File
+          import java.io.FileInputStream
+
+          @OptIn(UnstableApi::class)
+          class MainActivity : AppCompatActivity() {
+
+              private var player: ExoPlayer? = null
+              private var selectedVideoUri: Uri? = null
+              private var videoDurationMs: Long = 0L
+              private var rotationDegrees: Float = 0f
+
+              private lateinit var playerView: PlayerView
+              private lateinit var trimSlider: RangeSlider
+              private lateinit var tvTrimInfo: TextView
+              private lateinit var spinnerSpeed: Spinner
+              private lateinit var spinnerFilter: Spinner
+              private lateinit var spinnerRatio: Spinner
+              private lateinit var btnRotate: Button
+              private lateinit var cbMute: CheckBox
+              private lateinit var etOverlayText: EditText
+              private lateinit var btnExport: Button
+              private lateinit var progressBar: ProgressBar
+              private lateinit var tvStatus: TextView
+
+              private val pickVideoLauncher = registerForActivityResult(
+                  ActivityResultContracts.GetContent()
+              ) { uri: Uri? ->
+                  uri?.let { loadVideo(it) }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContentView(R.layout.activity_main)
+
+                  playerView = findViewById(R.id.playerView)
+                  trimSlider = findViewById(R.id.trimSlider)
+                  tvTrimInfo = findViewById(R.id.tvTrimInfo)
+                  spinnerSpeed = findViewById(R.id.spinnerSpeed)
+                  spinnerFilter = findViewById(R.id.spinnerFilter)
+                  spinnerRatio = findViewById(R.id.spinnerRatio)
+                  btnRotate = findViewById(R.id.btnRotate)
+                  cbMute = findViewById(R.id.cbMute)
+                  etOverlayText = findViewById(R.id.etOverlayText)
+                  btnExport = findViewById(R.id.btnExport)
+                  progressBar = findViewById(R.id.progressBar)
+                  tvStatus = findViewById(R.id.tvStatus)
+
+                  trimSlider.values = listOf(0f, 100f)
+                  setupSpinners()
+                  setupListeners()
+              }
+
+              private fun setupSpinners() {
+                  val speeds = arrayOf("1.0x (Normal)", "0.5x (Lambat)", "1.5x (Cepat)", "2.0x (Sangat Cepat)")
+                  spinnerSpeed.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, speeds)
+
+                  val filters = arrayOf("Normal", "Hitam Putih (Grayscale)", "Kontras Tinggi", "Cerah (Bright)", "Inversi Warna")
+                  spinnerFilter.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, filters)
+
+                  val ratios = arrayOf("Asli", "9:16 (Shorts / Reels)", "16:9 (YouTube)", "1:1 (Kotak)")
+                  spinnerRatio.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, ratios)
+              }
+
+              private fun setupListeners() {
+                  findViewById<Button>(R.id.btnPickVideo).setOnClickListener {
+                      pickVideoLauncher.launch("video/*")
+                  }
+
+                  trimSlider.addOnChangeListener { slider, _, _ ->
+                      val values = slider.values
+                      tvTrimInfo.text = "Potong Video (Trim): ${values[0].toInt()}% - ${values[1].toInt()}%"
+                  }
+
+                  btnRotate.setOnClickListener {
+                      rotationDegrees = (rotationDegrees + 90f) % 360f
+                      btnRotate.text = "Putar: ${rotationDegrees.toInt()}°"
+                  }
+
+                  btnExport.setOnClickListener {
+                      if (selectedVideoUri == null) {
+                          Toast.makeText(this, "Pilih video terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                          return@setOnClickListener
+                      }
+                      exportVideo()
+                  }
+              }
+
+              private fun loadVideo(uri: Uri) {
+                  selectedVideoUri = uri
+                  player?.release()
+                  player = ExoPlayer.Builder(this).build().also { exo ->
+                      playerView.player = exo
+                      exo.setMediaItem(MediaItem.fromUri(uri))
+                      exo.addListener(object : Player.Listener {
+                          override fun onPlaybackStateChanged(state: Int) {
+                              if (state == Player.STATE_READY && exo.duration > 0) {
+                                  videoDurationMs = exo.duration
+                                  tvStatus.text = "Video dimuat (${videoDurationMs / 1000} detik)"
+                              }
+                          }
+                      })
+                      exo.prepare()
+                      exo.play()
+                  }
+              }
+
+              private fun exportVideo() {
+                  val uri = selectedVideoUri ?: return
+                  val startPct = trimSlider.values[0] / 100f
+                  val endPct = trimSlider.values[1] / 100f
+                  val startMs = (videoDurationMs * startPct).toLong()
+                  val endMs = if (videoDurationMs > 0) (videoDurationMs * endPct).toLong() else C.TIME_END_OF_SOURCE
+
+                  val mediaItemBuilder = MediaItem.Builder().setUri(uri)
+                  if (videoDurationMs > 0 && (startPct > 0f || endPct < 1f)) {
+                      mediaItemBuilder.setClippingConfiguration(
+                          MediaItem.ClippingConfiguration.Builder()
+                              .setStartPositionMs(startMs)
+                              .setEndPositionMs(endMs)
+                              .build()
+                      )
+                  }
+
+                  val videoEffects = mutableListOf<Effect>()
+                  val audioProcessors = mutableListOf<AudioProcessor>()
+
+                  val speed = when (spinnerSpeed.selectedItemPosition) {
+                      1 -> 0.5f
+                      2 -> 1.5f
+                      3 -> 2.0f
+                      else -> 1.0f
+                  }
+                  if (speed != 1.0f) {
+                      videoEffects.add(SpeedChangeEffect(speed))
+                      val sonic = SonicAudioProcessor()
+                      sonic.setSpeed(speed)
+                      audioProcessors.add(sonic)
+                  }
+
+                  when (spinnerFilter.selectedItemPosition) {
+                      1 -> videoEffects.add(RgbFilter.createGrayscaleFilter())
+                      2 -> videoEffects.add(Contrast(0.45f))
+                      3 -> videoEffects.add(Brightness(0.25f))
+                      4 -> videoEffects.add(RgbFilter.createInvertedFilter())
+                  }
+
+                  when (spinnerRatio.selectedItemPosition) {
+                      1 -> videoEffects.add(Presentation.createForAspectRatio(9f / 16f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                      2 -> videoEffects.add(Presentation.createForAspectRatio(16f / 9f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                      3 -> videoEffects.add(Presentation.createForAspectRatio(1f, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP))
+                  }
+
+                  if (rotationDegrees != 0f) {
+                      videoEffects.add(
+                          ScaleAndRotateTransformation.Builder()
+                              .setRotationDegrees(rotationDegrees)
+                              .build()
+                      )
+                  }
+
+                  val text = etOverlayText.text.toString().trim()
+                  if (text.isNotEmpty()) {
+                      val overlays: ImmutableList<TextureOverlay> = ImmutableList.of(
+                          TextOverlay.createStaticTextOverlay(SpannableString(text))
+                      )
+                      videoEffects.add(OverlayEffect(overlays))
+                  }
+
+                  val editedMediaItem = EditedMediaItem.Builder(mediaItemBuilder.build())
+                      .setRemoveAudio(cbMute.isChecked)
+                      .setEffects(Effects(audioProcessors, videoEffects))
+                      .build()
+
+                  val tempFile = File(cacheDir, "velocut_${System.currentTimeMillis()}.mp4")
+                  progressBar.visibility = View.VISIBLE
+                  btnExport.isEnabled = false
+                  tvStatus.text = "Sedang merender video offline..."
+
+                  val transformer = Transformer.Builder(this)
+                      .addListener(object : Transformer.Listener {
+                          override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                              saveToGallery(tempFile)
+                              runOnUiThread {
+                                  progressBar.visibility = View.GONE
+                                  btnExport.isEnabled = true
+                                  tvStatus.text = "Selesai! Video tersimpan di Galeri (Movies/VeloCut)."
+                                  Toast.makeText(this@MainActivity, "Export Berhasil!", Toast.LENGTH_LONG).show()
+                              }
+                          }
+
+                          override fun onError(
+                              composition: Composition,
+                              exportResult: ExportResult,
+                              exportException: ExportException
+                          ) {
+                              runOnUiThread {
+                                  progressBar.visibility = View.GONE
+                                  btnExport.isEnabled = true
+                                  tvStatus.text = "Gagal export: ${exportException.message}"
+                              }
+                          }
+                      })
+                      .build()
+
+                  transformer.start(editedMediaItem, tempFile.absolutePath)
+              }
+
+              private fun saveToGallery(sourceFile: File) {
+                  val filename = "VeloCut_${System.currentTimeMillis()}.mp4"
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                      val values = ContentValues().apply {
+                          put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+                          put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                          put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/VeloCut")
+                      }
+                      val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                      uri?.let { outUri ->
+                          contentResolver.openOutputStream(outUri)?.use { out ->
+                              FileInputStream(sourceFile).use { input -> input.copyTo(out) }
+                          }
+                      }
+                      sourceFile.delete()
+                  } else {
+                      val destDir = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "VeloCut")
+                      destDir.mkdirs()
+                      sourceFile.copyTo(File(destDir, filename), overwrite = true)
+                      sourceFile.delete()
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  player?.release()
+              }
+          }
+          EOF
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VeloCut-Offline-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
